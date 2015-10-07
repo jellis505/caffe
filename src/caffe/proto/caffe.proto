@@ -710,7 +710,7 @@ message NoisyOrParameter {
   optional uint32 num_output = 1; // The number of outputs for the layer
   optional FillerParameter weight_filler = 2;
   optional int32 axis = 3 [default = 1];
-  optional int32 num_bag_instances = 4 [default = 144];
+  optional int32 num_instances = 4;
 }
 
 // Message that stores parameters used by LogLayer

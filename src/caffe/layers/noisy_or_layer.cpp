@@ -12,6 +12,29 @@ namespace caffe {
 template <typename Dtype>
 void NoisyOrLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+  // Figure out the dimensions
+  // This is the number of classes that we have
+  const int num_output = this->layer_param_.noisy_or_param().num_output();
+  output_size_ = num_output;
+  const int num_instances = this->layer_param_.noisy_or_param().num_instances();
+  num_instances_ = num_instances;
+  const int axis = bottom[0]->CanonicalAxisIndex(
+      this->layer_param_.noisy_or_param().axis());
+  // Dimensions starting from "axis" are "flattened" into a single
+  // length K_ vector. For example, if bottom[0]'s shape is (N, C, H, W),
+  // and axis == 1, N inner products with dimension CHW are performed.
+  mult_length_vector_ = bottom[0]->count(axis);
+
+  // Check to make sure that the length of bottom and top probability layers are the same
+  CHECK_EQ(mult_length_vector_, output_size_);
+  // TODO: Add a check here for the size of the output as well.
+  // Check if we need to set up the blob weights...
+  // I don't think that this layer actually needs to set up the blobs at all.
+
+  // Now let's set up the top vector size
+  static const int top_shape_array[] = {1, 1, 1, output_size_};
+  vector<int> top_shape(top_shape_array, top_shape_array + 4);
+  top[0]->Reshape(top_shape);
 }
 
 template <typename Dtype>
@@ -21,10 +44,10 @@ void NoisyOrLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   // This is the number of classes that we have
   const int num_output = this->layer_param_.noisy_or_param().num_output();
   output_size_ = num_output;
-  const int num_instances = this->layer_param_.noisy_or_param().num_output();
+  const int num_instances = this->layer_param_.noisy_or_param().num_instances();
   num_instances_ = num_instances;
   const int axis = bottom[0]->CanonicalAxisIndex(
-      this->layer_param_.inner_product_param().axis());
+      this->layer_param_.noisy_or_param().axis());
   // Dimensions starting from "axis" are "flattened" into a single
   // length K_ vector. For example, if bottom[0]'s shape is (N, C, H, W),
   // and axis == 1, N inner products with dimension CHW are performed.
@@ -48,20 +71,20 @@ void NoisyOrLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Blob<Dtype>* mutable_bottom = bottom[0];
   mutable_bottom->CopyFrom(*bottom[0]);
   Dtype* bottom_data = mutable_bottom->mutable_cpu_data();
-  int bottom_count = bottom[0]->count();
+  int bottom_count = mutable_bottom->count();
   Dtype* top_data = top[0]->mutable_cpu_data();
   // Simple for loop implementation
   // Create negative of the bottom data
-  caffe_scal(bottom_count, (Dtype)-1, bottom_data);
+  caffe_scal(bottom_count, (Dtype)-1., bottom_data);
   
   // Calculate (1-x) for ever value in our blob
-  caffe_add_scalar(bottom_count, (Dtype)1, bottom_data);
+  caffe_add_scalar(bottom_count, (Dtype)1., bottom_data);
 
   //Now let's calculate the value of a single layer
   for (int i = 0; i < output_size_; i++) {
     double p_bag_given_instances = 1;
     for (int j = 0; j < num_instances_; j++) {
-      p_bag_given_instances = p_bag_given_instances * mutable_bottom->data_at(j,i,1,1);
+      p_bag_given_instances = p_bag_given_instances * mutable_bottom->data_at(j,0,0,i);
     }
     // This top_data should have only one dimension, therefore we can access it directly
     top_data[i] = (1 - p_bag_given_instances); 

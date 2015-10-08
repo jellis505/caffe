@@ -406,6 +406,7 @@ class NoisyOrLayer : public Layer<Dtype> {
   int N_;
   bool bias_term_;
   Blob<Dtype> bias_multiplier_;
+  Blob<Dtype>* mutable_bottom_;
 };
 
 

@@ -35,6 +35,7 @@ void NoisyOrLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   static const int top_shape_array[] = {1, 1, 1, output_size_};
   vector<int> top_shape(top_shape_array, top_shape_array + 4);
   top[0]->Reshape(top_shape);
+  mutable_bottom_ = bottom[0];
 }
 
 template <typename Dtype>
@@ -68,10 +69,9 @@ void NoisyOrLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void NoisyOrLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
-  Blob<Dtype>* mutable_bottom = bottom[0];
-  mutable_bottom->CopyFrom(*bottom[0]);
-  Dtype* bottom_data = mutable_bottom->mutable_cpu_data();
-  int bottom_count = mutable_bottom->count();
+  mutable_bottom_->CopyFrom(*bottom[0]);
+  Dtype* bottom_data = mutable_bottom_->mutable_cpu_data();
+  int bottom_count = mutable_bottom_->count();
   Dtype* top_data = top[0]->mutable_cpu_data();
   // Simple for loop implementation
   // Create negative of the bottom data
@@ -84,7 +84,7 @@ void NoisyOrLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   for (int i = 0; i < output_size_; i++) {
     double p_bag_given_instances = 1;
     for (int j = 0; j < num_instances_; j++) {
-      p_bag_given_instances = p_bag_given_instances * mutable_bottom->data_at(j,0,0,i);
+      p_bag_given_instances = p_bag_given_instances * mutable_bottom_->data_at(j,0,0,i);
     }
     // This top_data should have only one dimension, therefore we can access it directly
     top_data[i] = (1 - p_bag_given_instances); 
@@ -95,26 +95,23 @@ template <typename Dtype>
 void NoisyOrLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
-  if (this->param_propagate_down_[0]) {
-    const Dtype* top_diff = top[0]->cpu_diff();
-    const Dtype* bottom_data = bottom[0]->cpu_data();
-    // Gradient with respect to weight
-    caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, N_, K_, M_, (Dtype)1.,
-        top_diff, bottom_data, (Dtype)1., this->blobs_[0]->mutable_cpu_diff());
-  }
-  if (bias_term_ && this->param_propagate_down_[1]) {
-    const Dtype* top_diff = top[0]->cpu_diff();
-    // Gradient with respect to bias
-    caffe_cpu_gemv<Dtype>(CblasTrans, M_, N_, (Dtype)1., top_diff,
-        bias_multiplier_.cpu_data(), (Dtype)1.,
-        this->blobs_[1]->mutable_cpu_diff());
-  }
+  // Because there are no tunable weights on this layer, this simply amounts to a 
+  // weighting of the examples within the bag as to which ones the errors are propgated
+  // down to.
   if (propagate_down[0]) {
-    const Dtype* top_diff = top[0]->cpu_diff();
-    // Gradient with respect to bottom data
-    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, K_, N_, (Dtype)1.,
-        top_diff, this->blobs_[0]->cpu_data(), (Dtype)0.,
-        bottom[0]->mutable_cpu_diff());
+    const Dtype* top_diff = top[0]->cpu_diff(); // This represents the bag difference
+    // Weighting of the particular examples
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+    int index = 0;
+    for (int i = 0; i < output_size_; i++) {
+      for (int j = 0; j < num_instances_; j++) {
+        // This returns the index for accessing our layers
+        index = j* output_size_ + i;
+        LOG(INFO) << "Top Diff " << top_diff[i];
+        LOG(INFO) << "Bottom Data" << bottom[0]->data_at(j, 0, 0, i);  
+        bottom_diff[index] = bottom[0]->data_at(j, 0, 0, i) * top_diff[i];
+      }
+    }
   }
 }
 

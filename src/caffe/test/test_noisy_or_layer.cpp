@@ -31,6 +31,15 @@ class NoisyOrLayerTest : public MultiDeviceTest<TypeParam> {
     ConstantFiller<Dtype> filler(filler_param);
     filler.Fill(blob_bottom_);
     blob_top_vec_.push_back(blob_top_);
+
+    // Now set up the errors for test propogation
+    true_labels_.push_back(1.);
+    true_labels_.push_back(0.);
+    true_labels_.push_back(1.);
+
+    prop_down_.push_back(true);
+
+    // Now add the vector example top layer
   }
   virtual ~NoisyOrLayerTest() {
     delete blob_bottom_;
@@ -40,6 +49,8 @@ class NoisyOrLayerTest : public MultiDeviceTest<TypeParam> {
   Blob<Dtype>* blob_top_;
   vector<Blob<Dtype>*> blob_bottom_vec_;
   vector<Blob<Dtype>*> blob_top_vec_;
+  vector<bool> prop_down_;
+  vector<double> true_labels_;
 };
 
 TYPED_TEST_CASE(NoisyOrLayerTest, TestDtypesAndDevices);
@@ -87,5 +98,46 @@ TYPED_TEST(NoisyOrLayerTest, ForwardTest) {
     LOG(ERROR) << "Skipping test due to old architecture.";
   }
 }
+
+TYPED_TEST(NoisyOrLayerTest, TestErrorProp) {
+  typedef typename TypeParam::Dtype Dtype;
+  this->blob_bottom_vec_.push_back(this->blob_bottom_);
+  bool IS_VALID_CUDA = false;
+#ifndef CPU_ONLY
+  IS_VALID_CUDA = CAFFE_TEST_CUDA_PROP.major >= 2;
+#endif
+  if (Caffe::mode() == Caffe::CPU ||
+      sizeof(Dtype) == 4 || IS_VALID_CUDA) {
+    LayerParameter layer_param;
+    NoisyOrParameter* noisy_or_param =
+      layer_param.mutable_noisy_or_param();
+    noisy_or_param->set_num_output(3);
+    noisy_or_param->set_num_instances(2);
+    shared_ptr<NoisyOrLayer<Dtype> > layer(new NoisyOrLayer<Dtype>(layer_param));
+    layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+
+    // Calculate Loss from above, it is the (true label - bag_label) / bag_label
+    const int count = this->blob_top_vec_[0]->count();
+    const Dtype* data = this->blob_top_vec_[0]->cpu_data();
+    for (int i = 0; i < count; i++) {;
+      this->blob_top_vec_[0]->mutable_cpu_diff()[i] = (this->true_labels_[i] - data[i]) / (data[i]);
+    }
+    layer->Backward(this->blob_top_vec_, this->prop_down_, this->blob_bottom_vec_);
+    for (int i = 0; i < noisy_or_param->num_output(); i++) {
+      for (int j = 0; j < noisy_or_param->num_instances(); j++) {
+        if (i == 1) {
+          EXPECT_EQ(-0.5, this->blob_bottom_vec_[0]->diff_at(j,0,0,i));
+        } else {
+          EXPECT_LE(.166, this->blob_bottom_vec_[0]->diff_at(j,0,0,i));
+          EXPECT_GE(.167, this->blob_bottom_vec_[0]->diff_at(j,0,0,i));
+        }
+      }
+    }
+  } else {
+    LOG(ERROR) << "Skipping test due to old architecture.";
+  }
+}
+
 
 } // namespace caffe

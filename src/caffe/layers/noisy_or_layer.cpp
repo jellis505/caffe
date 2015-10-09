@@ -107,8 +107,6 @@ void NoisyOrLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       for (int j = 0; j < num_instances_; j++) {
         // This returns the index for accessing our layers
         index = j* output_size_ + i;
-        LOG(INFO) << "Top Diff " << top_diff[i];
-        LOG(INFO) << "Bottom Data" << bottom[0]->data_at(j, 0, 0, i);  
         bottom_diff[index] = bottom[0]->data_at(j, 0, 0, i) * top_diff[i];
       }
     }

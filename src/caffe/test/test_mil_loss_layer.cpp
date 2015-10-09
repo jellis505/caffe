@@ -16,18 +16,19 @@
 namespace caffe {
 
 template <typename TypeParam>
-class SigmoidCrossEntropyLossLayerTest : public MultiDeviceTest<TypeParam> {
+class MilLossLayerTest : public MultiDeviceTest<TypeParam> {
   typedef typename TypeParam::Dtype Dtype;
 
  protected:
-  SigmoidCrossEntropyLossLayerTest()
-      : blob_bottom_data_(new Blob<Dtype>(10, 5, 1, 1)),
-        blob_bottom_targets_(new Blob<Dtype>(10, 5, 1, 1)),
+  MilLossLayerTest()
+      : blob_bottom_data_(new Blob<Dtype>(2, 1, 1, 5)),
+        blob_bottom_targets_(new Blob<Dtype>(2, 1, 1, 5)),
         blob_top_loss_(new Blob<Dtype>()) {
     // Fill the data vector
     FillerParameter data_filler_param;
-    data_filler_param.set_std(1);
-    GaussianFiller<Dtype> data_filler(data_filler_param);
+    data_filler_param.set_min(0);
+    data_filler_param.set_max(1);
+    UniformFiller<Dtype> data_filler(data_filler_param);
     data_filler.Fill(blob_bottom_data_);
     blob_bottom_vec_.push_back(blob_bottom_data_);
     // Fill the targets vector
@@ -38,19 +39,20 @@ class SigmoidCrossEntropyLossLayerTest : public MultiDeviceTest<TypeParam> {
     targets_filler.Fill(blob_bottom_targets_);
     blob_bottom_vec_.push_back(blob_bottom_targets_);
     blob_top_vec_.push_back(blob_top_loss_);
+    propogate_down_.push_back(true);
   }
-  virtual ~SigmoidCrossEntropyLossLayerTest() {
+  virtual ~MilLossLayerTest() {
     delete blob_bottom_data_;
     delete blob_bottom_targets_;
     delete blob_top_loss_;
   }
 
-  Dtype SigmoidCrossEntropyLossReference(const int count, const int num,
+  Dtype CrossEntropyLossReference(const int count, const int num,
                                          const Dtype* input,
                                          const Dtype* target) {
     Dtype loss = 0;
     for (int i = 0; i < count; ++i) {
-      const Dtype prediction = 1 / (1 + exp(-input[i]));
+      const Dtype prediction = input[i];
       EXPECT_LE(prediction, 1);
       EXPECT_GE(prediction, 0);
       EXPECT_LE(target[i], 1);
@@ -61,13 +63,18 @@ class SigmoidCrossEntropyLossLayerTest : public MultiDeviceTest<TypeParam> {
     return loss / num;
   }
 
+  Dtype BagErrorValues(const int count, const Dtype loss_weight, const Dtype num, const Dtype* input, const Dtype* target) {
+    return ((target[count] - input[count]) / input[count]) * (loss_weight / num);
+  }
+
   void TestForward() {
     LayerParameter layer_param;
     const Dtype kLossWeight = 3.7;
     layer_param.add_loss_weight(kLossWeight);
     FillerParameter data_filler_param;
-    data_filler_param.set_std(1);
-    GaussianFiller<Dtype> data_filler(data_filler_param);
+    data_filler_param.set_min(0.0);
+    data_filler_param.set_max(1.0);
+    UniformFiller<Dtype> data_filler(data_filler_param);
     FillerParameter targets_filler_param;
     targets_filler_param.set_min(0.0);
     targets_filler_param.set_max(1.0);
@@ -78,7 +85,7 @@ class SigmoidCrossEntropyLossLayerTest : public MultiDeviceTest<TypeParam> {
       data_filler.Fill(this->blob_bottom_data_);
       // Fill the targets vector
       targets_filler.Fill(this->blob_bottom_targets_);
-      SigmoidCrossEntropyLossLayer<Dtype> layer(layer_param);
+      MilLossLayer<Dtype> layer(layer_param);
       layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
       Dtype layer_loss =
           layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -87,7 +94,7 @@ class SigmoidCrossEntropyLossLayerTest : public MultiDeviceTest<TypeParam> {
       const Dtype* blob_bottom_data = this->blob_bottom_data_->cpu_data();
       const Dtype* blob_bottom_targets =
           this->blob_bottom_targets_->cpu_data();
-      Dtype reference_loss = kLossWeight * SigmoidCrossEntropyLossReference(
+      Dtype reference_loss = kLossWeight * CrossEntropyLossReference(
           count, num, blob_bottom_data, blob_bottom_targets);
       EXPECT_NEAR(reference_loss, layer_loss, eps) << "debug: trial #" << i;
     }
@@ -98,26 +105,43 @@ class SigmoidCrossEntropyLossLayerTest : public MultiDeviceTest<TypeParam> {
   Blob<Dtype>* const blob_top_loss_;
   vector<Blob<Dtype>*> blob_bottom_vec_;
   vector<Blob<Dtype>*> blob_top_vec_;
+  vector<bool> propogate_down_;
 };
 
-TYPED_TEST_CASE(SigmoidCrossEntropyLossLayerTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(MilLossLayerTest, TestDtypesAndDevices);
 
-TYPED_TEST(SigmoidCrossEntropyLossLayerTest, TestSigmoidCrossEntropyLoss) {
+TYPED_TEST(MilLossLayerTest, TestSigmoidCrossEntropyLoss) {
   this->TestForward();
 }
 
-TYPED_TEST(SigmoidCrossEntropyLossLayerTest, TestGradient) {
+TYPED_TEST(MilLossLayerTest, TestBagLoss) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
   const Dtype kLossWeight = 3.7;
   layer_param.add_loss_weight(kLossWeight);
-  SigmoidCrossEntropyLossLayer<Dtype> layer(layer_param);
+  MilLossLayer<Dtype> layer(layer_param);
+  FillerParameter data_filler_param;
+  data_filler_param.set_min(0.0);
+  data_filler_param.set_max(1.0);
+  UniformFiller<Dtype> data_filler(data_filler_param);
+  FillerParameter targets_filler_param;
+  targets_filler_param.set_min(0.0);
+  targets_filler_param.set_max(1.0);
+  UniformFiller<Dtype> targets_filler(targets_filler_param);
+  // Fill the data vector
+  data_filler.Fill(this->blob_bottom_data_);
+  // Fill the targets vector
+  targets_filler.Fill(this->blob_bottom_targets_);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-  GradientChecker<Dtype> checker(1e-2, 1e-2, 1701);
-  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
-      this->blob_top_vec_, 0);
- 
+  layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+  layer.Backward(this->blob_top_vec_, this->propogate_down_, this->blob_bottom_vec_);
+  const int num = this->blob_bottom_data_->num();
+  const int count = this->blob_bottom_data_->count();
+  Dtype eps = 2e-2;
+  for (int i = 0; i < count; i++) {
+    Dtype check_diff = this->BagErrorValues(i, kLossWeight, num, this->blob_bottom_data_->cpu_data(), this->blob_bottom_targets_->cpu_data());
+    EXPECT_NEAR(check_diff, this->blob_bottom_data_->cpu_diff()[i], eps);
+  }
 }
-
 
 }  // namespace caffe

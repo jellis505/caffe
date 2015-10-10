@@ -40,6 +40,21 @@ message Datum {
   optional bool encoded = 7 [default = false];
 }
 
+message MilDatum {
+  optional int32 channels = 1;
+  optional int32 height = 2;
+  optional int32 width = 3;
+  optional int32 crops = 8;
+  // the actual image data, in bytes
+  repeated bytes data = 4;
+  optional bytes label = 5;
+  optional int32 label_length = 9;
+  // Optionally, the datum could also hold float data.
+  repeated float float_data = 6;
+  // If true data contains an encoded image that need to be decoded
+  optional bool encoded = 7 [default = false];
+}
+
 message FillerParameter {
   // The filler type.
   optional string type = 1 [default = 'constant'];

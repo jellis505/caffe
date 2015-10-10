@@ -32,8 +32,17 @@ void MilLossLayer<Dtype>::Forward_cpu(
   const Dtype* input_data = bottom[0]->cpu_data();
   const Dtype* target = bottom[1]->cpu_data();
   Dtype loss = 0;
+  Dtype eps = .01;
   for (int i = 0; i < count; ++i) {
-    loss -= (target[i] * log(input_data[i])) + log(1 - input_data[i]) * (1 - target[i]);
+    loss -= (target[i] * log(input_data[i] + eps)) + log((1 - input_data[i]) + eps) * (1 - target[i]);
+    //if (i == 0) {
+    //  LOG(INFO) << "Target " << target[i];
+    //  LOG(INFO) << "input_data " << input_data[i];
+    //}
+    //if (target[i] == 1) {
+    //  LOG(INFO) << "Count " << i;
+    //  LOG(INFO) << "P Bag " << input_data[i];
+    //}
   }
   top[0]->mutable_cpu_data()[0] = loss / num;
 }
@@ -48,13 +57,17 @@ void MilLossLayer<Dtype>::Backward_cpu(
   }
   if (propagate_down[0]) {
     // First, compute the diff
+    Dtype eps = .01;
     const int count = bottom[0]->count();
     const int num = bottom[0]->num();
     const Dtype* output_data = bottom[0]->cpu_data();
     const Dtype* target = bottom[1]->cpu_data();
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     for (int i = 0; i < count; i++) {
-      bottom_diff[i] = (target[i] - output_data[i]) / output_data[i];
+      bottom_diff[i] = (target[i] - output_data[i]) / (output_data[i] + eps);
+      //if (i == 0) {
+      //  LOG(INFO) << "Bag Weight" << (target[i] - output_data[i]) / (output_data[i] + eps);
+      //}
     }
     // Scale down gradient
     const Dtype loss_weight = top[0]->cpu_diff()[0];

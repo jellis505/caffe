@@ -69,25 +69,28 @@ void NoisyOrLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void NoisyOrLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
-  mutable_bottom_->CopyFrom(*bottom[0]);
-  Dtype* bottom_data = mutable_bottom_->mutable_cpu_data();
-  int bottom_count = mutable_bottom_->count();
   Dtype* top_data = top[0]->mutable_cpu_data();
   // Simple for loop implementation
   // Create negative of the bottom data
-  caffe_scal(bottom_count, (Dtype)-1., bottom_data);
+  //caffe_scal(bottom_count, (Dtype)-1., bottom_data);
   
   // Calculate (1-x) for ever value in our blob
-  caffe_add_scalar(bottom_count, (Dtype)1., bottom_data);
+  //caffe_add_scalar(bottom_count, (Dtype)1., bottom_data);
 
   //Now let's calculate the value of a single layer
   for (int i = 0; i < output_size_; i++) {
     double p_bag_given_instances = 1;
     for (int j = 0; j < num_instances_; j++) {
-      p_bag_given_instances = p_bag_given_instances * mutable_bottom_->data_at(j,0,0,i);
+      //if (i == 0 and j == 0) {
+      //  LOG(INFO) << "Sigmoid Layer " << bottom[0]->cpu_data()[0];
+      //}
+      p_bag_given_instances = p_bag_given_instances * (1 - bottom[0]->data_at(j,0,0,i));
     }
     // This top_data should have only one dimension, therefore we can access it directly
-    top_data[i] = (1 - p_bag_given_instances); 
+    //if (i == 0) {
+    //  LOG(INFO) << "P_bag_given_instances " << (1 - p_bag_given_instances);
+    //}
+    top_data[i] = (1 - p_bag_given_instances);
   }
 }
 
@@ -107,7 +110,13 @@ void NoisyOrLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       for (int j = 0; j < num_instances_; j++) {
         // This returns the index for accessing our layers
         index = j* output_size_ + i;
-        bottom_diff[index] = bottom[0]->data_at(j, 0, 0, i) * top_diff[i];
+        bottom_diff[index] = -(bottom[0]->data_at(j, 0, 0, i) * top_diff[i]);
+
+        //if (i == 0 and j == 0) {
+        //  LOG(INFO) << "Noisy-Or Bag Weight " << top_diff[i];
+        //  LOG(INFO) << "Instance Weight " << bottom[0]->data_at(j, 0, 0, i);
+        //  LOG(INFO) << "Diff " << bottom[0]->diff_at(j, 0, 0, i);
+        //}
       }
     }
   }

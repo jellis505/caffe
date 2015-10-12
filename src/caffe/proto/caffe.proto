@@ -453,6 +453,10 @@ message AccuracyParameter {
 
   // If specified, ignore instances with the given label.
   optional int32 ignore_label = 3;
+
+  // Added by Joe Ellis for multi_class_accuracy_layer
+  optional double bag_threshold = 4;
+  
 }
 
 message ArgMaxParameter {

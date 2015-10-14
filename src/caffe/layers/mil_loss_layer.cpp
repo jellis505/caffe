@@ -33,7 +33,9 @@ void MilLossLayer<Dtype>::Forward_cpu(
   const Dtype* target = bottom[1]->cpu_data();
   Dtype loss = 0;
   Dtype eps = .01;
+  Dtype positive_count = 0.0;
   for (int i = 0; i < count; ++i) {
+    positive_count += target[i];
     loss -= (target[i] * log(input_data[i] + eps)) + log((1 - input_data[i]) + eps) * (1 - target[i]);
     //if (i == 0) {
     //  LOG(INFO) << "Target " << target[i];
@@ -44,7 +46,10 @@ void MilLossLayer<Dtype>::Forward_cpu(
     //  LOG(INFO) << "P Bag " << input_data[i];
     //}
   }
-  top[0]->mutable_cpu_data()[0] = loss / num;
+  if (positive_count == 0.0) {
+    positive_count = 1.0;
+  }
+  top[0]->mutable_cpu_data()[0] = (loss / num) / positive_count;
 }
 
 template <typename Dtype>

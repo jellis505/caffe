@@ -62,7 +62,7 @@ void MilLossLayer<Dtype>::Backward_cpu(
   }
   if (propagate_down[0]) {
     // First, compute the diff
-    Dtype eps = .01;
+    Dtype eps = .0001;
     const int count = bottom[0]->count();
     const int num = bottom[0]->num();
     const Dtype* output_data = bottom[0]->cpu_data();
@@ -70,7 +70,8 @@ void MilLossLayer<Dtype>::Backward_cpu(
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     for (int i = 0; i < count; i++) {
       bottom_diff[i] = (target[i] - output_data[i]) / (output_data[i] + eps);
-      //if (i == 0) {
+      //if (target[i] == 1) {
+      //  LOG(INFO) << "Value Num: " << i;
       //  LOG(INFO) << "Bag Weight" << (target[i] - output_data[i]) / (output_data[i] + eps);
       //}
     }

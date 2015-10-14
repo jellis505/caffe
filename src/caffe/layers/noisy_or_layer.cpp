@@ -112,14 +112,6 @@ void NoisyOrLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         // This returns the index for accessing our layers
         index = j* output_size_ + i;
         bottom_diff[index] = -(((bottom[0]->cpu_data()[index] + eps)  * top_diff[i]));
-
-        //if (top_diff[i] > 0.01) {
-        //  LOG(INFO) << "Value Num: " << i;
-        //  LOG(INFO) << "Bag Weight: " << top_diff[i];
-        //  LOG(INFO) << "Instance Weight: " << bottom[0]->data_at(j,0,0,i);
-        //  LOG(INFO) << "Total Error Propogation: " << bottom_diff[index]; 
-        //}
-
         //if (i == 0 and j == 0) {
         //  LOG(INFO) << "Noisy-Or Bag Weight " << top_diff[i];
         //  LOG(INFO) << "Instance Weight " << bottom[0]->data_at(j, 0, 0, i);

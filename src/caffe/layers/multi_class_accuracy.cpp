@@ -25,6 +25,7 @@ void MultiClassAccuracyLayer<Dtype>::Reshape(
   top[1]->Reshape(top_shape);
   top[2]->Reshape(top_shape);
   top[3]->Reshape(top_shape);
+  top[4]->Reshape(top_shape);
   CHECK_EQ(bottom[0]->count(), bottom[1]->count());
   this->threshold_ = this->layer_param_.accuracy_param().bag_threshold();
 }
@@ -41,6 +42,7 @@ void MultiClassAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bot
   double curr_pred = 0;
   int num_total_pos = 0;
   int num_pos_predictions = 0;
+  int num_small_pos = 0;
   for (int i = 0; i < total_count; i++) {
     if (bottom_data[i] > this->threshold_) {
       curr_pred = 1.0;
@@ -58,12 +60,16 @@ void MultiClassAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bot
         pos_correct++;
       }
     }
+    if (bottom_data[i] > 0.05) {
+      num_small_pos++;
+    }
   }
   // Output to the data sets
   top[0]->mutable_cpu_data()[0] = num_total_pos;
   top[1]->mutable_cpu_data()[0] = num_pos_predictions;
   top[2]->mutable_cpu_data()[0] = correct / (double)total_count;
   top[3]->mutable_cpu_data()[0] = pos_correct / (double)num_total_pos;
+  top[4]->mutable_cpu_data()[0] = num_small_pos;
 }
 
 INSTANTIATE_CLASS(MultiClassAccuracyLayer);

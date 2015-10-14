@@ -1,0 +1,12 @@
+net: "models/dvmm_mil_caffenet/train_val.prototxt"
+base_lr: 0.001
+lr_policy: "step"
+gamma: 0.1
+stepsize: 40000
+display: 20
+max_iter: 150000
+momentum: 0.9
+weight_decay: 0.0005
+snapshot: 40000
+snapshot_prefix: "models/dvmm_mil_caffenet/mil_caffenet_train_MSCoco_40k"
+solver_mode: GPU

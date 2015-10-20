@@ -110,10 +110,10 @@ void NoisyOrLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     for (int i = 0; i < output_size_; i++) {
       for (int j = 0; j < num_instances_; j++) {
         // This returns the index for accessing our layers
-        partial_index = j* output_size_ + i;
+        partial_index = (j* output_size_) + i;
         double partial_value = 1;
         for (int k = 0; k < num_instances_; k++) {
-          other_index = k* output_size_ + i;
+          other_index = (k* output_size_) + i;
           if (k != j) {
             partial_value = partial_value * (bottom[0]->cpu_data()[other_index] - 1.0);
           }

@@ -62,7 +62,6 @@ void MilLossLayer<Dtype>::Backward_cpu(
   }
   if (propagate_down[0]) {
     // First, compute the diff
-    Dtype eps = .0001;
     const int count = bottom[0]->count();
     const int num = bottom[0]->num();
     const Dtype* output_data = bottom[0]->cpu_data();

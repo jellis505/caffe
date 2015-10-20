@@ -27,8 +27,10 @@ class NoisyOrLayerTest : public MultiDeviceTest<TypeParam> {
     // fill the values
     FillerParameter filler_param;
     filler_param.set_value(.5);
+    filler_param.set_min(0.0);
+    filler_param.set_max(1.0);
     LOG(INFO) << "Filler Value" << filler_param.value();
-    ConstantFiller<Dtype> filler(filler_param);
+    UniformFiller<Dtype> filler(filler_param);
     filler.Fill(blob_bottom_);
     blob_top_vec_.push_back(blob_top_);
 
@@ -91,8 +93,13 @@ TYPED_TEST(NoisyOrLayerTest, ForwardTest) {
     layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
     const Dtype* data = this->blob_top_->cpu_data();
     const int count = this->blob_top_->count();
+    const int num = this->blob_bottom_vec_[0]->num();
     for (int i = 0; i < count; ++i) {
-      EXPECT_EQ(0.75, data[i]);
+      Dtype value = 1.0;
+      for (int j = 0; j < num; j++) {
+        value = value * ((Dtype)1.0 - (Dtype)this->blob_bottom_vec_[0]->data_at(j, 0, 0, i));
+      }
+      EXPECT_EQ((Dtype) (1.0 - value), data[i]);
     }
   } else {
     LOG(ERROR) << "Skipping test due to old architecture.";

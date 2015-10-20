@@ -21,8 +21,8 @@ class MilLossLayerTest : public MultiDeviceTest<TypeParam> {
 
  protected:
   MilLossLayerTest()
-      : blob_bottom_data_(new Blob<Dtype>(2, 1, 1, 5)),
-        blob_bottom_targets_(new Blob<Dtype>(2, 1, 1, 5)),
+      : blob_bottom_data_(new Blob<Dtype>(1, 5, 1, 1)),
+        blob_bottom_targets_(new Blob<Dtype>(1, 5, 1, 1)),
         blob_top_loss_(new Blob<Dtype>()) {
     // Fill the data vector
     FillerParameter data_filler_param;
@@ -69,7 +69,7 @@ class MilLossLayerTest : public MultiDeviceTest<TypeParam> {
 
   void TestForward() {
     LayerParameter layer_param;
-    const Dtype kLossWeight = 3.7;
+    const Dtype kLossWeight = 1.0;
     layer_param.add_loss_weight(kLossWeight);
     FillerParameter data_filler_param;
     data_filler_param.set_min(0.0);
@@ -110,38 +110,20 @@ class MilLossLayerTest : public MultiDeviceTest<TypeParam> {
 
 TYPED_TEST_CASE(MilLossLayerTest, TestDtypesAndDevices);
 
-TYPED_TEST(MilLossLayerTest, TestSigmoidCrossEntropyLoss) {
+TYPED_TEST(MilLossLayerTest, TestMILLossLayer) {
   this->TestForward();
 }
 
-TYPED_TEST(MilLossLayerTest, TestBagLoss) {
+TYPED_TEST(MilLossLayerTest, TestMILGradientLayer) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
   const Dtype kLossWeight = 3.7;
   layer_param.add_loss_weight(kLossWeight);
   MilLossLayer<Dtype> layer(layer_param);
-  FillerParameter data_filler_param;
-  data_filler_param.set_min(0.0);
-  data_filler_param.set_max(1.0);
-  UniformFiller<Dtype> data_filler(data_filler_param);
-  FillerParameter targets_filler_param;
-  targets_filler_param.set_min(0.0);
-  targets_filler_param.set_max(1.0);
-  UniformFiller<Dtype> targets_filler(targets_filler_param);
-  // Fill the data vector
-  data_filler.Fill(this->blob_bottom_data_);
-  // Fill the targets vector
-  targets_filler.Fill(this->blob_bottom_targets_);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-  layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-  layer.Backward(this->blob_top_vec_, this->propogate_down_, this->blob_bottom_vec_);
-  const int num = this->blob_bottom_data_->num();
-  const int count = this->blob_bottom_data_->count();
-  Dtype eps = 2e-2;
-  for (int i = 0; i < count; i++) {
-    Dtype check_diff = this->BagErrorValues(i, kLossWeight, num, this->blob_bottom_data_->cpu_data(), this->blob_bottom_targets_->cpu_data());
-    EXPECT_NEAR(check_diff, this->blob_bottom_data_->cpu_diff()[i], eps);
-  }
+  GradientChecker<Dtype> checker(1e-2, 1e-2);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_, 0);
 }
 
 }  // namespace caffe

@@ -99,6 +99,7 @@ TYPED_TEST(NoisyOrLayerTest, ForwardTest) {
   }
 }
 
+/*
 TYPED_TEST(NoisyOrLayerTest, TestErrorProp) {
   typedef typename TypeParam::Dtype Dtype;
   this->blob_bottom_vec_.push_back(this->blob_bottom_);
@@ -134,6 +135,30 @@ TYPED_TEST(NoisyOrLayerTest, TestErrorProp) {
         }
       }
     }
+  } else {
+    LOG(ERROR) << "Skipping test due to old architecture.";
+  }
+}
+*/
+
+TYPED_TEST(NoisyOrLayerTest, GradientChecker) {
+  typedef typename TypeParam::Dtype Dtype;
+  this->blob_bottom_vec_.push_back(this->blob_bottom_);
+  bool IS_VALID_CUDA = false;
+#ifndef CPU_ONLY
+  IS_VALID_CUDA = CAFFE_TEST_CUDA_PROP.major >= 2;
+#endif
+  if (Caffe::mode() == Caffe::CPU ||
+      sizeof(Dtype) == 4 || IS_VALID_CUDA) {
+    LayerParameter layer_param;
+    NoisyOrParameter* noisy_or_param =
+      layer_param.mutable_noisy_or_param();
+    noisy_or_param->set_num_output(3);
+    noisy_or_param->set_num_instances(2);
+    NoisyOrLayer<Dtype> layer(layer_param);
+    GradientChecker<Dtype> checker(1e-2, 1e-3);
+    checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+        this->blob_top_vec_);
   } else {
     LOG(ERROR) << "Skipping test due to old architecture.";
   }

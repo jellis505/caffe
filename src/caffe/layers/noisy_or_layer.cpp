@@ -116,7 +116,7 @@ void NoisyOrLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
             partial_value = partial_value * (bottom[0]->data_at(k,0,0,i) - 1.0);
           }
         }
-        bottom_diff[partial_index] = (partial_value * top_diff[i]);
+        bottom_diff[partial_index] = -(partial_value * top_diff[i]);
         //if (i == 0 and j == 0) {
         //  LOG(INFO) << "Noisy-Or Bag Weight " << top_diff[i];
         //  LOG(INFO) << "Instance Weight " << bottom[0]->data_at(j, 0, 0, i);

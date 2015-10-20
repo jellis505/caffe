@@ -69,15 +69,15 @@ void MilLossLayer<Dtype>::Backward_cpu(
     const Dtype* target = bottom[1]->cpu_data();
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     for (int i = 0; i < count; i++) {
-      bottom_diff[i] = (target[i] - output_data[i]) / (output_data[i] + eps);
+      bottom_diff[i] = (target[i] - output_data[i]);
       //if (target[i] == 1) {
       //  LOG(INFO) << "Value Num: " << i;
       //  LOG(INFO) << "Bag Weight" << (target[i] - output_data[i]) / (output_data[i] + eps);
       //}
     }
     // Scale down gradient
-    const Dtype loss_weight = top[0]->cpu_diff()[0];
-    caffe_scal(count, loss_weight / num, bottom_diff);
+    //const Dtype loss_weight = top[0]->cpu_diff()[0];
+    //caffe_scal(count, loss_weight / num, bottom_diff);
   }
 }
 

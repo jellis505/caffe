@@ -9,7 +9,7 @@ namespace caffe {
 
 template <typename Dtype>
 inline Dtype sigmoid(Dtype x) {
-  return 1. / (1. + exp(-x));
+  return 1. / (1. + exp(- (Dtype) 1.0 * x));
 }
 
 template <typename Dtype>
@@ -34,7 +34,7 @@ void SigmoidLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const int count = bottom[0]->count();
     for (int i = 0; i < count; ++i) {
       const Dtype sigmoid_x = top_data[i];
-      bottom_diff[i] = top_diff[i] * sigmoid_x * (1. - sigmoid_x);
+      bottom_diff[i] = top_diff[i] * sigmoid_x * (1. - sigmoid_x) * (Dtype)1.0;
     }
   }
 }

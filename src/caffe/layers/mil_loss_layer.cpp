@@ -55,9 +55,12 @@ void MilLossLayer<Dtype>::Backward_cpu(
     const int num = bottom[0]->num();
     const Dtype* output_data = bottom[0]->cpu_data();
     const Dtype* target = bottom[1]->cpu_data();
+    const Dtype eps = 0.00001;
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     for (int i = 0; i < count; i++) {
-      bottom_diff[i] = (output_data[i] - target[i]) / (output_data[i] * ((Dtype) 1.0 - output_data[i]));
+      Dtype denom = (output_data[i] * ((Dtype) 1.0 - output_data[i]));
+      Dtype used_denom = std::max(denom, eps);
+      bottom_diff[i] = (output_data[i] - target[i]) / used_denom;
     }
     // Scale down gradient
     const Dtype loss_weight = top[0]->cpu_diff()[0];
